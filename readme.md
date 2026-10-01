@@ -5,7 +5,7 @@ SQL databases, using "standard" Scala collections operations running against
 typed `Table` descriptions.
 
 ```scala
-import scalasql._, SqliteDialect._
+import scalasql.*, SqliteDialect.*
 
 // Define your table model classes
 case class City[T[_]](
@@ -56,7 +56,7 @@ dbClient.transaction{ db =>
 }
 ```
 
-ScalaSql supports database connections to PostgreSQL, MySQL, Sqlite, and H2 databases.
+ScalaSql supports database connections to PostgreSQL, MySQL, Sqlite, MSSql and H2 databases.
 Support for additional databases can be easily added.
 
 ScalaSql is a relatively new library, so please try it out, but be aware you may hit bugs
@@ -68,13 +68,13 @@ you are able to investigate and fix them!
 
 ## Getting Started
 
-To get started with ScalaSql, add it to your `build.sc` file as follows:
+To get started with ScalaSql, add it to your `build.mill` file as follows:
 
 ```scala
-ivy"com.lihaoyi::scalasql:0.2.3"
+ivy"com.lihaoyi::scalasql:0.3.0"
 ```
 
-ScalaSql supports Scala 2.13.x and >=3.6.2
+ScalaSql supports Scala >=3.6.2
 
 ### SimpleTable variant based on named tuples
 
@@ -84,13 +84,13 @@ Add the following to your `build.sc` file as follows:
 
 <!-- TODO: scalasql-simple? -->
 ```scala
-ivy"com.lihaoyi::scalasql-namedtuples:0.2.3"
+ivy"com.lihaoyi::scalasql-simple:0.3.0"
 ```
 
 And taking the example above, the only thing that needs to change is the following:
 ```diff
--import scalasql._, SqliteDialect._
-+import scalasql.simple._, SqliteDialect._
+-import scalasql.*, SqliteDialect.*
++import scalasql.simple.*, SqliteDialect.*
 
  // Define your table model classes
 -case class City[T[_]](
@@ -121,6 +121,31 @@ And you now have the option to return named tuples from queries:
 +       .map(c => (name = c.name, pop = c.population))
   )
 ```
+
+### ZIO integration
+
+For [ZIO](https://zio.dev) users, the `scalasql-zio` module wraps ScalaSql's JDBC API in ZIO
+effects, providing type-safe database operations and transactions with savepoints. Scala 3 only.
+
+```scala
+ivy"com.lihaoyi::scalasql-zio:0.3.0"
+```
+
+Queries run as ZIO effects, with JDBC errors wrapped in `DbException` and committed/rolled back
+automatically by the enclosing `transaction`:
+
+```scala
+import scalasql.dbzio.*
+
+ZDbClient.transaction:
+  for
+    _    <- DbOp.run(User.insert.columns(_.email := email, _.name := name))
+    user <- DbOp.runSingle(User.select.filter(_.email `=` email))
+  yield user
+```
+
+See the [ZDbApiPlainSpec](scalasql/zio/test/src/dbzio/tests/ZDbApiPlainSpec.scala) for
+transaction, rollback, and savepoint examples.
 
 ## Documentation
 
@@ -176,6 +201,19 @@ And you now have the option to return named tuples from queries:
   to the `com-lihaoyi/scalasql` codebase
 
 ## Changelog
+
+### 0.3.1
+* Upgrade to mill 1.0.5 [#110](https://github.com/com-lihaoyi/scalasql/pull/110)
+* Deprecate scala 2 [#111](https://github.com/com-lihaoyi/scalasql/pull/111)
+* Strict equality in operations [#112](https://github.com/com-lihaoyi/scalasql/pull/112)
+
+### 0.3.0
+
+* Add support for asynchronous transaction API [#107](https://github.com/com-lihaoyi/scalasql/pull/107)
+
+### 0.2.7
+
+* `scalasql-namedtuples` artifact is now named `scalasql-simple`
 
 ### 0.2.3
 

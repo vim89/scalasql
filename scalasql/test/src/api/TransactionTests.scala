@@ -587,6 +587,24 @@ trait TransactionTests extends ScalaSqlSuite {
       }
     }
 
+    test("useBlock") - checker.recorded(
+      """
+      Both `transaction` and `savepoint` accessors are actually returning a special `UseBlock[...]` types.
+      When you call `transaction(use)` it desugars into `transaction.apply(use)` that provides a default
+      resource-style management - it creates a transaction (or savepoint), runs `use` block immediately, then releases
+      (commits or rolls back) the transaction.
+
+      If you need more control over the lifecycle, you may use transaction.allocate() method that returns
+      `(resource, releaseFunction)` pair.
+      This is especially useful when delaying side-effects with FP libraries like cats-effect or ZIO.
+      **Important:** `allocate()` is impure and must be delayed in that case also.
+      The `dbClient.transaction` expression itself does not perform any side-effects, it just creates closures.
+      """,
+      Text {
+        dbClient.transaction
+      }
+    )
+
     test("listener") {
       test("beforeCommit and afterCommit are called under normal circumstances") {
         val listener = new StubTransactionListener()
@@ -602,7 +620,7 @@ trait TransactionTests extends ScalaSqlSuite {
 
       test("if beforeCommit causes an exception, {before,after}Rollback are called") {
         val listener = new StubTransactionListener(throwOnBeforeCommit = true)
-        val e = intercept[ListenerException] {
+        val e = assertThrows[ListenerException] {
           dbClient.transaction { implicit txn =>
             txn.addTransactionListener(listener)
           }
@@ -616,7 +634,7 @@ trait TransactionTests extends ScalaSqlSuite {
 
       test("if afterCommit causes an exception, the exception is propagated") {
         val listener = new StubTransactionListener(throwOnAfterCommit = true)
-        val e = intercept[ListenerException] {
+        val e = assertThrows[ListenerException] {
           dbClient.transaction { implicit txn =>
             txn.addTransactionListener(listener)
           }
@@ -630,7 +648,7 @@ trait TransactionTests extends ScalaSqlSuite {
 
       test("if beforeRollback causes an exception, afterRollback is still called") {
         val listener = new StubTransactionListener(throwOnBeforeRollback = true)
-        val e = intercept[FooException] {
+        val e = assertThrows[FooException] {
           dbClient.transaction { implicit txn =>
             txn.addTransactionListener(listener)
             throw new FooException()
@@ -645,7 +663,7 @@ trait TransactionTests extends ScalaSqlSuite {
 
       test("if afterRollback causes an exception, the exception is propagated") {
         val listener = new StubTransactionListener(throwOnAfterRollback = true)
-        val e = intercept[FooException] {
+        val e = assertThrows[FooException] {
           dbClient.transaction { implicit txn =>
             txn.addTransactionListener(listener)
             throw new FooException()
